@@ -14,8 +14,8 @@ class DBClient {
     // Set up the connection to the local db
     MongoClient.connect(new Server(host, port)).then((client) => {
       this.db = client.db(database);
-      this.users = client.collection('users');
-      this.files = client.collection('files');
+      this.users = this.db.collection('users');
+      this.files = this.db.collection('files');
     });
   }
 
