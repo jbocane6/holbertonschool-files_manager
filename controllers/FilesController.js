@@ -84,6 +84,85 @@ class FilesController {
       parentId: parentId ? ObjectId(parentId) : 0,
     });
   }
+
+  static async getShow(req, res) {
+    const checkAuth = await authUtils.checkAuth(req);
+    if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
+
+    const userId = checkAuth.payload.id;
+
+    let { id } = req.params;
+    try {
+      id = ObjectId(id);
+    } catch (e) {
+      return res.status(404).send({ error: 'Not found' });
+    }
+    const requestedFile = await dbClient.files.findOne({
+      _id: ObjectId(id),
+      userId: ObjectId(userId),
+    });
+
+    if (!requestedFile) return res.status(404).send({ error: 'Not found' });
+
+    const {
+      _id,
+      name,
+      type,
+      isPublic,
+      parentId,
+    } = requestedFile;
+
+    return res.status(200).send({
+      id: _id,
+      userId,
+      name,
+      type,
+      isPublic,
+      parentId,
+    });
+  }
+
+  static async getIndex(req, res) {
+    const checkAuth = await authUtils.checkAuth(req);
+    if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
+
+    const userId = checkAuth.payload.id;
+
+    let { parentId, page } = req.query;
+
+    page = page ? Number(page, 10) : 0;
+
+    if (!parentId || parentId === '0') {
+      parentId = 0;
+    } else {
+      try {
+        parentId = ObjectId(parentId);
+      } catch (e) {
+        parentId = 0;
+      }
+    }
+
+    const query = [
+      { $match: { parentId, userId: ObjectId(userId) } },
+      { $skip: page * 20 },
+      { $limit: 20 },
+    ];
+
+    const requestedFiles = await dbClient.files.aggregate(query).toArray();
+
+    const sanitizedFiles = [];
+    for (const elem of requestedFiles) {
+      const file = {
+        id: elem._id,
+        name: elem.name,
+        type: elem.type,
+        isPublic: elem.isPublic,
+        parentId: elem.parentId,
+      };
+      sanitizedFiles.push(file);
+    }
+    return res.status(200).send(sanitizedFiles);
+  }
 }
 
 module.exports = FilesController;
