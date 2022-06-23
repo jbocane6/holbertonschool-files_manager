@@ -1,6 +1,8 @@
 import Queue from 'bull';
 import fs from 'fs';
+import mime from 'mime-types';
 import { ObjectId } from 'mongodb';
+import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import authUtils from '../utils/auth';
 import dbClient from '../utils/db';
@@ -11,12 +13,12 @@ class FilesController {
     if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
 
     const userId = checkAuth.payload.id;
+
     const { name, type, data } = req.body;
     const parentId = req.body.parentId || 0;
     const isPublic = req.body.isPublic || false;
 
     const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
-
     if (!fs.existsSync(folderPath)) {
       try {
         fs.mkdirSync(folderPath, { recursive: true });
@@ -32,6 +34,7 @@ class FilesController {
     if (parentId) {
       const parent = await dbClient.files.findOne({ _id: new ObjectId(parentId) });
       if (!parent) return res.status(400).send({ error: 'Parent not found' });
+
       if (parent.type !== 'folder') return res.status(400).send({ error: 'Parent is not a folder' });
     }
 
@@ -129,9 +132,7 @@ class FilesController {
     const userId = checkAuth.payload.id;
 
     let { parentId, page } = req.query;
-
     page = page ? Number(page, 10) : 0;
-
     if (!parentId || parentId === '0') {
       parentId = 0;
     } else {
@@ -165,11 +166,9 @@ class FilesController {
   }
 
   static async putPublish(req, res) {
-    // Authenticate user, reject if no auth
     const checkAuth = await authUtils.checkAuth(req);
     if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
 
-    // If valid auth, user is the payload from checkAuth()
     const userId = checkAuth.payload.id;
 
     let { id } = req.params;
@@ -208,11 +207,9 @@ class FilesController {
   }
 
   static async putUnpublish(req, res) {
-    // Authenticate user, reject if no auth
     const checkAuth = await authUtils.checkAuth(req);
     if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
 
-    // If valid auth, user is the payload from checkAuth()
     const userId = checkAuth.payload.id;
 
     let { id } = req.params;
@@ -248,6 +245,40 @@ class FilesController {
       isPublic: false,
       parentId,
     });
+  }
+
+  static async getFile(req, res) {
+    const checkAuth = await authUtils.checkAuth(req);
+    const userId = checkAuth.status === 200 ? checkAuth.payload.id.toString() : undefined;
+
+    let { id } = req.params;
+    const { size } = req.query;
+    try {
+      id = ObjectId(id);
+    } catch (e) {
+      return res.status(404).send({ error: 'Not found' });
+    }
+
+    const requestedFile = await dbClient.files.findOne({ _id: ObjectId(id) });
+    if (!requestedFile) return res.status(404).send({ error: 'Not found' });
+    if (requestedFile.userId.toString() !== userId && !requestedFile.isPublic) return res.status(404).send({ error: 'Not found' });
+    if (requestedFile.type === 'folder') return res.status(400).send({ error: 'A folder doesn\'t have content' });
+
+    if (size && requestedFile.type === 'image') {
+      requestedFile.localPath = `${requestedFile.localPath}_${size}`;
+      console.log(requestedFile.localPath);
+    }
+
+    if (!fs.existsSync(requestedFile.localPath)) return res.status(404).send({ error: 'Not found' });
+    const mimeType = mime.lookup(path.extname(requestedFile.name));
+
+    let fileContent;
+    try {
+      fileContent = fs.readFileSync(requestedFile.localPath, { flag: 'r' });
+    } catch (e) {
+      return res.status(404).send({ error: 'Not found' });
+    }
+    return res.status(200).setHeader('content-type', mimeType).send(fileContent);
   }
 }
 
