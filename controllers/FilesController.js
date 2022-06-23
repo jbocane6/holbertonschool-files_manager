@@ -163,6 +163,92 @@ class FilesController {
     }
     return res.status(200).send(sanitizedFiles);
   }
+
+  static async putPublish(req, res) {
+    // Authenticate user, reject if no auth
+    const checkAuth = await authUtils.checkAuth(req);
+    if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
+
+    // If valid auth, user is the payload from checkAuth()
+    const userId = checkAuth.payload.id;
+
+    let { id } = req.params;
+    try {
+      id = ObjectId(id);
+    } catch (e) {
+      return res.status(404).send({ error: 'Not found' });
+    }
+    const requestedFile = await dbClient.files.findOne({
+      _id: ObjectId(id),
+      userId: ObjectId(userId),
+    });
+
+    if (!requestedFile) return res.status(404).send({ error: 'Not found' });
+
+    const {
+      _id,
+      name,
+      type,
+      parentId,
+    } = requestedFile;
+
+    dbClient.files.updateOne(
+      { _id: ObjectId(id) },
+      { $set: { isPublic: true } },
+    );
+
+    return res.status(200).send({
+      id: _id,
+      userId,
+      name,
+      type,
+      isPublic: true,
+      parentId,
+    });
+  }
+
+  static async putUnpublish(req, res) {
+    // Authenticate user, reject if no auth
+    const checkAuth = await authUtils.checkAuth(req);
+    if (checkAuth.status !== 200) return res.status(401).send({ error: 'Unauthorized' });
+
+    // If valid auth, user is the payload from checkAuth()
+    const userId = checkAuth.payload.id;
+
+    let { id } = req.params;
+    try {
+      id = ObjectId(id);
+    } catch (e) {
+      return res.status(404).send({ error: 'Not found' });
+    }
+    const requestedFile = await dbClient.files.findOne({
+      _id: ObjectId(id),
+      userId: ObjectId(userId),
+    });
+
+    if (!requestedFile) return res.status(404).send({ error: 'Not found' });
+
+    const {
+      _id,
+      name,
+      type,
+      parentId,
+    } = requestedFile;
+
+    dbClient.files.updateOne(
+      { _id: ObjectId(id) },
+      { $set: { isPublic: false } },
+    );
+
+    return res.status(200).send({
+      id: _id,
+      userId,
+      name,
+      type,
+      isPublic: false,
+      parentId,
+    });
+  }
 }
 
 module.exports = FilesController;
