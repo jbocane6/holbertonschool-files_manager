@@ -1,6 +1,6 @@
 import sha1 from 'sha1';
 import { v4 as uuidv4 } from 'uuid';
-import RedisClient from '../utils/redis';
+import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
 
 class AuthController {
@@ -17,7 +17,7 @@ class AuthController {
     const authToken = uuidv4();
     const redisKey = `auth_${authToken}`;
 
-    RedisClient.set(redisKey, user._id.toString(), 86400);
+    redisClient.set(redisKey, user._id.toString(), 86400);
 
     return res.status(200).send({ token: authToken });
   }
@@ -26,11 +26,12 @@ class AuthController {
     if (!req.headers['x-token']) return res.status(401).send({ error: 'Unauthorized' });
 
     const redisKey = `auth_${req.headers['x-token']}`;
-    const userId = await RedisClient.get(redisKey);
+    const userId = await redisClient.get(redisKey);
 
     if (!userId) return res.status(401).send({ error: 'Unauthorized' });
 
-    await RedisClient.del(redisKey);
+    await redisClient.del(redisKey);
+
     return res.status(204).end();
   }
 }

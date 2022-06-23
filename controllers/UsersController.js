@@ -14,17 +14,17 @@ class UsersController {
 
     if (await dbClient.users.findOne({ email })) return res.status(400).send({ error: 'Already exist' });
 
-    let record;
+    let user;
     try {
-      record = await dbClient.users.insertOne({ email, password: sha1(password) });
+      user = await dbClient.users.insertOne({ email, password: sha1(password) });
     } catch (err) {
       return res.status(400).send({ error: `DB insert failed: ${err}` });
     }
 
-    const recordQueue = Queue('recordQueue');
-    recordQueue.add({ userId: record.insertedId });
+    const userQueue = Queue('userQueue');
+    userQueue.add({ userId: user.insertedId });
 
-    return res.status(201).send({ id: record.insertedId, email });
+    return res.status(201).send({ id: user.insertedId, email });
   }
 
   static async getMe(req, res) {
