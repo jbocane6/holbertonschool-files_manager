@@ -1,6 +1,8 @@
 import sha1 from 'sha1';
 import Queue from 'bull';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
 // Contains the definition of the endpoints:
 class UsersController {
@@ -23,6 +25,21 @@ class UsersController {
     recordQueue.add({ userId: record.insertedId });
 
     return res.status(201).send({ id: record.insertedId, email });
+  }
+
+  static async getMe(req, res) {
+    let result;
+    if (!req.headers['x-token']) result = { status: 401, payload: { error: 'Unauthorized' } };
+    else {
+      const userId = await redisClient.get(`auth_${req.headers['x-token']}`);
+      const user = await dbClient.users.findOne({ _id: new ObjectId(userId) });
+
+      if (!user) result = { status: 401, payload: { error: 'Unauthorized' } };
+      else {
+        result = { status: 200, payload: { id: user._id, email: user.email } };
+      }
+    }
+    return res.status(result.status).send(result.payload);
   }
 }
 
