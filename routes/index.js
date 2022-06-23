@@ -3,7 +3,7 @@ import AppController from '../controllers/AppController';
 
 const router = express.Router();
 
-//Endpoints
+// Endpoints
 router.get('/status', AppController.getStatus);
 router.get('/stats', AppController.getStats);
 
