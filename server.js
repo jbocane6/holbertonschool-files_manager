@@ -5,7 +5,7 @@ const routes = require('./routes/index');
 
 const app = express();
 /* Should listen on the port set by the environment variable PORT
-	or by default 5000 */
+or by default 5000 */
 const port = process.env.PORT || 5000;
 
 // Show port listening
